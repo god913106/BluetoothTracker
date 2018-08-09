@@ -14,12 +14,20 @@ class BlueTableViewController: UITableViewController, CBCentralManagerDelegate {
     var centralManager: CBCentralManager?
     var names : [String] = []
     var RSSIs : [NSNumber] = []
+    var timer : Timer?
     
     override func viewDidLoad() {
         super.viewDidLoad()
 
         centralManager = CBCentralManager(delegate: self, queue: nil)
         
+    }
+    //計時器 每10秒重新搜尋
+    func startTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true, block: { (timer) in
+            self.startScan()
+        })
     }
     
     
@@ -30,6 +38,7 @@ class BlueTableViewController: UITableViewController, CBCentralManagerDelegate {
         if central.state == .poweredOn {
             // Working
             startScan()
+            startTimer()
         } else {
             // Not Working
             let alert = UIAlertController(title: "Bluetooth isn't working", message: "", preferredStyle: .alert)
@@ -47,15 +56,29 @@ class BlueTableViewController: UITableViewController, CBCentralManagerDelegate {
         names = []
         RSSIs = []
         tableView.reloadData()
-        centralManager?.stopScan()
+         stopDiscovery()
+//        centralManager?.stopScan()
         //withServices 可以指定要哪個設備，如果nil，就是找全部
         //For example you could look for only Bluetooth devices that are heart rate monitors or something.
-        centralManager?.scanForPeripherals(withServices: nil, options: nil)
-        
+        if(centralManager?.state == CBManagerState.poweredOn && centralManager?.isScanning == false) {
+            centralManager?.scanForPeripherals(withServices: nil, options: nil)
+        }
+       
+    }
+    //停止搜尋藍牙設備
+    func stopDiscovery() {
+        if #available(iOS 9.0, *) {
+            if (centralManager?.isScanning)! {
+                centralManager?.stopScan()
+            }
+        } else {
+            centralManager?.stopScan()
+        }
     }
     
     //找完以後 didDiscover
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
+        
         
         if let name = peripheral.name {
             names.append(name)
@@ -65,10 +88,14 @@ class BlueTableViewController: UITableViewController, CBCentralManagerDelegate {
         RSSIs.append(RSSI)
         tableView.reloadData()
         
+        
+        
+        
     }
 
     @IBAction func refreshTapped(_ sender: Any) {
         startScan()
+        startTimer()
     }
     
     
